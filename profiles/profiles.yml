@@ -35,10 +35,10 @@ dbt_crime:
     dev:
       type: postgres
       host: host.docker.internal
-      user: tsuser
-      password: tspassword
-      port: 5435
-      dbname: tsdb
-      schema: analytic
+      user: admin
+      password: password
+      port: 5430
+      dbname: db
+      schema: schema_data
       threads: 1
 
