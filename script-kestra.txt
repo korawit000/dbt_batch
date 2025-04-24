@@ -1,0 +1,116 @@
+id: ibex_215550
+namespace: demo
+
+tasks:
+  - id: airbyte-sync
+    type: io.kestra.plugin.airbyte.connections.Sync
+    # http://localhost:8000/workspaces/5d91202e-7086-47a5-9038-4a041f372060/connections/549bc79f-4786-4206-9e7a-84ba16b64545/
+    connectionId: 549bc79f-4786-4206-9e7a-84ba16b64545
+    url: http://host.docker.internal:8000
+    username: airbyte
+    password: password
+    timeout: PT10M
+    # retry:
+    #   maxAttempt: 3
+    #   delay: PT30S
+
+  - id: log-after-sync
+    type: io.kestra.plugin.core.log.Log
+    message: Airbyte sync completed!
+    # dependsOn:
+    #   - airbyte-sync
+
+
+  # - id: shell
+  #   type: io.kestra.plugin.scripts.shell.Commands
+  #   taskRunner:
+  #     type: io.kestra.plugin.scripts.runner.docker.Docker
+  #   commands:
+  #   - pwd
+
+  - id: working_directory
+    type: io.kestra.plugin.core.flow.WorkingDirectory
+    tasks:
+      - id: clone_repository
+        type: io.kestra.plugin.git.Clone
+        # url: https://github.com/kestra-io/dbt-demo
+        url: https://github.com/korawit000/crime
+        branch: main
+
+      - id: dbt_Deps
+        type: io.kestra.plugin.dbt.cli.Deps
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+        dbtPath: /usr/local/bin/dbt
+        containerImage: ghcr.io/kestra-io/dbt-postgres
+        profiles: |
+          dbt_crime:
+            target: dev
+            outputs:
+              dev:
+                type: postgres
+                host: host.docker.internal
+                user: tsuser
+                password: tspassword
+                port: 5435
+                dbname: tsdb
+                schema: analytic
+                threads: 1
+
+      - id: dbt_run
+        type: io.kestra.plugin.dbt.cli.Run
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+        dbtPath: /usr/local/bin/dbt
+        containerImage: ghcr.io/kestra-io/dbt-postgres
+        profiles: |
+          dbt_crime:
+            target: dev
+            outputs:
+              dev:
+                type: postgres
+                host: host.docker.internal
+                user: tsuser
+                password: tspassword
+                port: 5435
+                dbname: tsdb
+                schema: analytic
+                threads: 1
+        select:
+          - dbt_crime.source.report_crime_batch
+
+      # - id: dbt_deps
+      #   type: io.kestra.plugin.dbt.cli.Deps
+      #   taskRunner:
+      #     type: io.kestra.plugin.scripts.runner.docker.Docker
+      #   dbtPath: /app/dbt_project
+      #   containerImage: ghcr.io/kestra-io/dbt
+      #   profiles: |
+      #     dbt_crime:
+      #       target: dev
+      #       outputs:
+      #         dev:
+      #           type: postgres
+      #           host: host.docker.internal
+      #           user: tsuser
+      #           password: tspassword
+      #           port: 5435
+      #           dbname: tsdb
+      #           schema: analytic
+      #           threads: 1
+
+
+  - id: log-after-dbt
+    type: io.kestra.plugin.core.log.Log
+    message: DBT transformation completed!
+
+
+
+  - id: psql
+    type: io.kestra.plugin.jdbc.postgresql.Query
+    url: jdbc:postgresql://host.docker.internal:5435/tsdb
+    username: tsuser
+    password: tspassword
+    sql: DO $$ BEGIN IF NOT EXISTS ( SELECT 1 FROM information_schema.views WHERE table_schema = 'analytic' AND table_name = 'report_crime' ) THEN EXECUTE 'CREATE VIEW analytic.report_crime AS SELECT * FROM analytic.report_crime_batch UNION ALL SELECT * FROM analytic.report_crime_realtime'; END IF; END $$;
+
+
