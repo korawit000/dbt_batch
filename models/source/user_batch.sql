@@ -7,7 +7,7 @@ id
 , email
 , created_at
 , is_active
-FROM schema_data.users;
+FROM schema_data.user_data;
 )
 select
 *
