@@ -1,0 +1,21 @@
+{{ config(materialized='table', unique_key='dr_no') }}
+
+with source AS (
+SELECT 
+id
+, username
+, email
+, created_at
+, is_active
+FROM schema_data.users;
+)
+select
+*
+from source
+
+-- {% if is_incremental() %}
+--     where dr_no > (select max(dr_no) from {{ this }})
+-- {% endif %}
+
+
+
