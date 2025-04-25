@@ -1,4 +1,4 @@
-{{ config(materialized='table', unique_key='dr_no') }}
+{{ config(materialized='table', unique_key='id') }}
 
 with source AS (
 SELECT 
